@@ -113,9 +113,13 @@ function run(){
   if(maChart)maChart.destroy();
   const ctx1=document.getElementById('ma-chart').getContext('2d');
   const maLabels=data.map(d=>d.date.slice(5));
+  // 用日期到索引的映射来定位散点
+  const dateIdx={};data.forEach((d,i)=>{dateIdx[d.date]=i;});
   const entries=[],exits=[];
   completedTrades.forEach(t=>{
-    entries.push({x:t.entry.slice(5),y:t.ep});exits.push({x:t.exit.slice(5),y:t.xp});
+    const ei=dateIdx[t.entry],xi=dateIdx[t.exit];
+    if(ei!=null)entries.push({x:ei,y:t.ep});
+    if(xi!=null)exits.push({x:xi,y:t.xp});
   });
   maChart=new Chart(ctx1,{type:'line',data:{labels:maLabels,datasets:[
     {label:'收盘价',data:close,borderColor:'#374151',borderWidth:1.5,pointRadius:0},
