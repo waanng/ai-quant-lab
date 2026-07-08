@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indicator Lab Interactive</title>
+<link rel="stylesheet" href="../shared/common.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f5f5f5;--bg3:#eee;
+  --tx:#222;--tx2:#666;--tx3:#999;
+  --bd:#e0e0e0;--bd2:#ccc;
+  --red:#dc2626;--green:#059669;--blue:#2563eb;--amber:#d97706;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  --r:8px;--r2:12px;
+}
+body{font-family:var(--font);font-size:13px;color:var(--tx);background:var(--bg3);line-height:1.5;overflow-y:scroll}
+.app{max-width:1200px;margin:0 auto;padding:12px 16px}
+.header{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
+.header h1{font-size:18px;font-weight:500}
+.header .meta{font-size:13px;color:var(--tx2)}
+.main{display:grid;grid-template-columns:260px 1fr;gap:14px}
+.sidebar{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--bg);border-radius:var(--r2);border:0.5px solid var(--bd);padding:12px 14px}
+.card-title{font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.card-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.slider-line{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.slider-line span{font-size:11px;color:var(--tx2)}
+.slider-line .val{font-size:12px;font-weight:500;min-width:28px;text-align:right}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--bd);border-radius:2px;outline:none;margin:2px 0 8px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--blue);cursor:pointer}
+.range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--tx3);margin-top:-6px;margin-bottom:6px}
+.metrics{display:flex;gap:12px;padding-top:8px;border-top:0.5px solid var(--bd);margin-top:4px}
+.metric{text-align:center}
+.metric .num{font-size:13px;font-weight:500}
+.metric .label{font-size:10px;color:var(--tx2)}
+.positive{color:var(--red)}
+.negative{color:var(--green)}
+.charts{display:flex;flex-direction:column;gap:8px}
+.chart-box{background:var(--bg);border-radius:var(--r2);border:0.5px solid var(--bd);padding:10px 14px}
+.chart-box .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.chart-box .chart-title{font-size:13px;font-weight:500}
+.range-btns{display:flex;gap:4px}
+.range-btn{font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg2);border:0.5px solid var(--bd);cursor:pointer;color:var(--tx2)}
+.range-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap.p1{height:260px}
+.chart-wrap.p2{height:140px}
+.chart-wrap.p3{height:150px}
+.chart-wrap.p4{height:130px}
+select{width:100%;font-size:13px;padding:7px 8px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--bg);color:var(--tx)}
+.quick-info{display:flex;gap:16px;margin-top:8px}
+.quick-info div{font-size:13px}
+.quick-info .price{font-size:17px;font-weight:500}
+.footer{text-align:center;font-size:11px;color:var(--tx3);padding:16px 0 8px}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:4px}
+.badge-info{background:#e6f1fb;color:var(--blue)}
+.badge-red{background:#fcebeb;color:var(--red)}
+.badge-green{background:#eaf3de;color:var(--green)}
+@media(max-width:800px){.main{grid-template-columns:1fr}.sidebar{order:2}.charts{order:1}}
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="/ai-quant-lab/" class="nav-brand">🧪 AI Quant Lab</a>
+  <div class="nav-links">
+    <a href="/ai-quant-lab/indicator-lab/" class="active">📊 指标实验室</a>
+    <a href="/ai-quant-lab/turtle-strategy/">🐢 海龟法则</a>
+    <a href="/ai-quant-lab/ma-cross/">📈 均线交叉</a>
+  </div>
+</nav>
+
+<div class="app">
+<div class="header">
+  <h1>Indicator Lab Interactive</h1>
+  <span class="meta" id="headerMeta"></span>
+</div>
+
+<div class="main">
+<div class="sidebar" id="sidebar">
+  <div class="card">
+    <div class="card-title">选择股票</div>
+    <select id="stockSelect"></select>
+    <div class="quick-info" id="quickInfo"></div>
+  </div>
+</div>
+
+<div class="charts" id="charts">
+  <div class="chart-box">
+    <div class="chart-header">
+      <span class="chart-title" id="chart1Title">价格走势 · 布林带</span>
+      <div class="range-btns" id="rangeBtns"></div>
+    </div>
+    <div class="chart-wrap p1"><canvas id="chart1"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-header"><span class="chart-title">RSI</span></div>
+    <div class="chart-wrap p2"><canvas id="chart2"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-header"><span class="chart-title">MACD</span></div>
+    <div class="chart-wrap p3"><canvas id="chart3"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-header"><span class="chart-title">ATR</span></div>
+    <div class="chart-wrap p4"><canvas id="chart4"></canvas></div>
+  </div>
+</div>
+</div>
+
+<div class="footer">技术指标描述历史市场状态，不等于买卖信号。参数调整实时重绘。</div>
+</div>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script>
+// ============================================================
+// 指标计算引擎
+// ============================================================
+function ema(data, period) {
+  var k = 2/(period+1), result = new Array(data.length);
+  result[0] = data[0];
+  for (var i = 1; i < data.length; i++) result[i] = data[i]*k + result[i-1]*(1-k);
+  return result;
+}
+function wilderEma(data, period) {
+  var a = 1/period, result = new Array(data.length);
+  result[0] = data[0];
+  for (var i = 1; i < data.length; i++) result[i] = data[i]*a + result[i-1]*(1-a);
+  return result;
+}
+function calcRSI(closes, n) {
+  var len = closes.length, gains = new Array(len).fill(0), losses = new Array(len).fill(0);
+  for (var i = 1; i < len; i++) {
+    var d = closes[i] - closes[i-1];
+    gains[i] = d > 0 ? d : 0;
+    losses[i] = d < 0 ? -d : 0;
+  }
+  var avgG = wilderEma(gains, n), avgL = wilderEma(losses, n);
+  return avgG.map(function(g, i) {
+    if (i === 0) return null;
+    if (avgL[i] === 0) return 100;
+    var rs = g / avgL[i];
+    return 100 - 100/(1+rs);
+  });
+}
+function calcMACD(closes, fast, slow, signal) {
+  var len = closes.length;
+  var emaF = ema(closes, fast), emaS = ema(closes, slow);
+  var dif = new Array(len), dea, hist;
+  for (var i = 0; i < len; i++) dif[i] = emaF[i] - emaS[i];
+  dea = ema(dif, signal);
+  hist = dif.map(function(d, i) { return d - dea[i]; });
+  return {dif: dif, dea: dea, hist: hist};
+}
+function calcBOLL(closes, n, k) {
+  var len = closes.length, mid = new Array(len), up = new Array(len), low = new Array(len);
+  for (var i = 0; i < len; i++) {
+    if (i < n-1) { mid[i]=null; up[i]=null; low[i]=null; continue; }
+    var sum=0, j; for (j=i-n+1;j<=i;j++) sum+=closes[j];
+    var m=sum/n, sumsq=0;
+    for (j=i-n+1;j<=i;j++) sumsq+=Math.pow(closes[j]-m,2);
+    var std=Math.sqrt(sumsq/n);
+    mid[i]=m; up[i]=m+k*std; low[i]=m-k*std;
+  }
+  return {mid:mid, up:up, low:low};
+}
+function calcATR(highs, lows, closes, n) {
+  var len = highs.length, tr = new Array(len);
+  tr[0] = highs[0]-lows[0];
+  for (var i = 1; i < len; i++) {
+    tr[i] = Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1]));
+  }
+  var atr = wilderEma(tr, n);
+  var atrPct = atr.map(function(a,i){ return a/closes[i]*100; });
+  return {atr:atr, atrPct:atrPct};
+}
+function calcMA(closes, n) {
+  var len = closes.length, ma = new Array(len).fill(null);
+  var sum = 0;
+  for (var i = 0; i < len; i++) {
+    sum += closes[i];
+    if (i >= n) sum -= closes[i-n];
+    if (i >= n-1) ma[i] = sum/n;
+  }
+  return ma;
+}
+
+// ============================================================
+// 全局状态
+// ============================================================
+var currentStock = STOCK_DATA[0];
+var params = { rsiN:14, macdFast:12, macdSlow:26, macdSig:9, bollN:20, bollK:2.0, atrN:14 };
+var timeRange = 0; // 0=all, 1=1m, 2=3m, 3=6m, 4=1y
+
+// ============================================================
+// Chart.js 实例
+// ============================================================
+var ctx1=null, ctx2=null, ctx3=null, ctx4=null;
+var c1=null, c2=null, c3=null, c4=null;
+
+function getData() {
+  var d = currentStock.data, len = d.length;
+  var dates = d.map(function(r){return r.d;});
+  var closes = d.map(function(r){return r.c;});
+  var highs = d.map(function(r){return r.h;});
+  var lows = d.map(function(r){return r.l;});
+  if (timeRange === 0) return {dates:dates, closes:closes, highs:highs, lows:lows, start:0, len:len};
+
+  var now = new Date(dates[len-1]);
+  var cutoff;
+  if (timeRange === 1) cutoff = new Date(now.getTime() - 30*86400000);
+  else if (timeRange === 2) cutoff = new Date(now.getTime() - 90*86400000);
+  else if (timeRange === 3) cutoff = new Date(now.getTime() - 180*86400000);
+  else cutoff = new Date(now.getTime() - 365*86400000);
+
+  var start = 0;
+  for (var i = 0; i < len; i++) {
+    if (new Date(dates[i]) >= cutoff) { start = i; break; }
+  }
+  return {
+    dates: dates.slice(start), closes: closes.slice(start),
+    highs: highs.slice(start), lows: lows.slice(start),
+    start: start, len: len - start
+  };
+}
+
+function padNull(arr, n) {
+  var r = new Array(n).fill(null);
+  for (var i = 0; i < Math.min(arr.length, n); i++) r[i] = arr[i];
+  return r;
+}
+
+// ============================================================
+// 渲染所有图表
+// ============================================================
+function renderAll() {
+  var full = currentStock.data;
+  var fullDates = full.map(function(r){return r.d;});
+  var fullCloses = full.map(function(r){return r.c;});
+  var fullHighs = full.map(function(r){return r.h;});
+  var fullLows = full.map(function(r){return r.l;});
+
+  var d = getData();
+  var dates = d.dates, closes = d.closes, highs = d.highs, lows = d.lows;
+
+  // 计算所有指标（用全量数据，然后切片）
+  var rsiFull = calcRSI(fullCloses, params.rsiN);
+  var macdFull = calcMACD(fullCloses, params.macdFast, params.macdSlow, params.macdSig);
+  var bollFull = calcBOLL(fullCloses, params.bollN, params.bollK);
+  var atrFull = calcATR(fullHighs, fullLows, fullCloses, params.atrN);
+  var ma5Full = calcMA(fullCloses, 5), ma10Full = calcMA(fullCloses, 10);
+  var ma20Full = calcMA(fullCloses, 20), ma60Full = calcMA(fullCloses, 60);
+
+  // 切片
+  var s = d.start, n = d.len;
+  var cd = dates, cc = closes;
+  var rsiD = padNull(rsiFull.slice(s), n);
+  var difD = padNull(macdFull.dif.slice(s), n);
+  var deaD = padNull(macdFull.dea.slice(s), n);
+  var histD = padNull(macdFull.hist.slice(s), n);
+  var bMid = padNull(bollFull.mid.slice(s), n);
+  var bUp = padNull(bollFull.up.slice(s), n);
+  var bLow = padNull(bollFull.low.slice(s), n);
+  var atrD = padNull(atrFull.atr.slice(s), n);
+  var atrPctD = padNull(atrFull.atrPct.slice(s), n);
+  var ma5 = padNull(ma5Full.slice(s), n), ma10 = padNull(ma10Full.slice(s), n);
+  var ma20 = padNull(ma20Full.slice(s), n), ma60 = padNull(ma60Full.slice(s), n);
+
+  // Chart 1: 价格 + MA + 布林带
+  if (c1) c1.destroy();
+  ctx1 = document.getElementById('chart1').getContext('2d');
+  c1 = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels: cd,
+      datasets: [
+        {label:'上轨',data:bUp,borderColor:'rgba(153,153,153,0.6)',borderWidth:0.8,borderDash:[4,3],pointRadius:0,fill:false},
+        {label:'下轨',data:bLow,borderColor:'rgba(153,153,153,0.6)',borderWidth:0.8,borderDash:[4,3],pointRadius:0,fill:{target:'-1',above:'rgba(37,99,235,0.06)'}},
+        {label:'中轨',data:bMid,borderColor:'#dc2626',borderWidth:0.8,pointRadius:0,fill:false},
+        {label:'MA5',data:ma5,borderColor:'rgba(220,38,38,0.4)',borderWidth:0.8,pointRadius:0,fill:false},
+        {label:'MA10',data:ma10,borderColor:'rgba(37,99,235,0.4)',borderWidth:0.8,pointRadius:0,fill:false},
+        {label:'MA20',data:ma20,borderColor:'rgba(5,150,105,0.5)',borderWidth:0.8,pointRadius:0,fill:false},
+        {label:'MA60',data:ma60,borderColor:'rgba(217,119,6,0.5)',borderWidth:0.8,pointRadius:0,fill:false},
+        {label:'收盘价',data:cc,borderColor:'#333',borderWidth:1.2,pointRadius:0,fill:false}
+      ]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:10},padding:8,usePointStyle:true}}},
+      scales:{
+        x:{ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'}}
+      }
+    }
+  });
+
+  // Chart 2: RSI
+  if (c2) c2.destroy();
+  ctx2 = document.getElementById('chart2').getContext('2d');
+  c2 = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: cd,
+      datasets: [
+        {label:'RSI('+params.rsiN+')',data:rsiD,borderColor:'#2563eb',borderWidth:1.2,pointRadius:0,fill:false},
+      ]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:10}}},
+        annotation:{}
+      },
+      scales:{
+        x:{ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{min:0,max:100,ticks:{stepSize:10,font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'}}
+      }
+    },
+    plugins: [{
+      id: 'rsiLines',
+      beforeDraw: function(chart) {
+        var ctx = chart.ctx, yScale = chart.scales.y;
+        var y70 = yScale.getPixelForValue(70), y30 = yScale.getPixelForValue(30);
+        ctx.save();
+        ctx.setLineDash([4,3]);
+        ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 0.5; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.moveTo(yScale.left, y70); ctx.lineTo(yScale.right, y70); ctx.stroke();
+        ctx.strokeStyle = '#059669';
+        ctx.beginPath(); ctx.moveTo(yScale.left, y30); ctx.lineTo(yScale.right, y30); ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+
+  // Chart 3: MACD
+  if (c3) c3.destroy();
+  ctx3 = document.getElementById('chart3').getContext('2d');
+  var histColors = histD.map(function(v){ return v>=0 ? 'rgba(220,38,38,0.55)' : 'rgba(5,150,105,0.55)'; });
+  c3 = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: cd,
+      datasets: [
+        {label:'MACD Hist',data:histD,backgroundColor:histColors,borderWidth:0,barPercentage:0.9,categoryPercentage:1.0},
+        {label:'DIF',data:difD,borderColor:'#dc2626',borderWidth:0.8,pointRadius:0,type:'line',fill:false},
+        {label:'DEA',data:deaD,borderColor:'#2563eb',borderWidth:0.8,pointRadius:0,type:'line',fill:false}
+      ]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:10},usePointStyle:true}}},
+      scales:{
+        x:{ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'}}
+      }
+    }
+  });
+
+  // Chart 4: ATR
+  if (c4) c4.destroy();
+  ctx4 = document.getElementById('chart4').getContext('2d');
+  c4 = new Chart(ctx4, {
+    type: 'line',
+    data: {
+      labels: cd,
+      datasets: [
+        {label:'ATR('+params.atrN+')',data:atrD,borderColor:'#d97706',borderWidth:1.0,pointRadius:0,fill:{target:'origin',above:'rgba(217,119,6,0.08)'}},
+        {label:'ATR%',data:atrPctD,borderColor:'#059669',borderWidth:0.8,pointRadius:0,yAxisID:'y1',fill:false}
+      ]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:10},usePointStyle:true}}},
+      scales:{
+        x:{ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{position:'left',ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'},title:{display:false}},
+        y1:{position:'right',ticks:{font:{size:10},callback:function(v){return v.toFixed(1)+'%';}},grid:{display:false}}
+      }
+    }
+  });
+
+  // 更新指标卡
+  updateMetricCards(fullCloses, rsiFull, macdFull, bollFull, atrFull);
+}
+
+// ============================================================
+// 指标卡更新
+// ============================================================
+function updateMetricCards(closes, rsi, macd, boll, atr) {
+  var i = closes.length - 1;
+  var rsiVal = rsi[i], rsiStatus = rsiVal > 70 ? '超买' : (rsiVal < 30 ? '超卖' : '中性');
+  var rsiClass = rsiVal > 70 ? 'badge-red' : (rsiVal < 30 ? 'badge-green' : 'badge-info');
+  var difVal = macd.dif[i], deaVal = macd.dea[i], histVal = macd.hist[i];
+  var bMidV = boll.mid[i], bUpV = boll.up[i], bLowV = boll.low[i];
+  var widthPct = bMidV > 0 ? ((bUpV - bLowV) / bMidV * 100) : 0;
+  var atrVal = atr.atr[i], atrPctV = atr.atrPct[i];
+
+  document.getElementById('sidebar').innerHTML =
+    '<div class="card">'+
+      '<div class="card-title">选择股票</div>'+
+      '<select id="stockSelect">'+STOCK_DATA.map(function(s){return '<option value="'+s.key+'">'+s.name+' · '+s.key+'</option>';}).join('')+'</select>'+
+      '<div class="quick-info">'+
+        '<div><span class="price" id="latestPrice"></span><br><span style="font-size:11px;color:var(--tx2)">收盘价 '+currentStock.currency+'</span></div>'+
+        '<div><span class="price" id="priceChange"></span><br><span style="font-size:11px;color:var(--tx2)">涨跌幅</span></div>'+
+        '<div><span style="font-size:13px;font-weight:500" id="dataRange"></span><br><span style="font-size:11px;color:var(--tx2)">数据范围</span></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card" style="border-left:3px solid #059669">'+
+      '<div class="card-title"><span class="dot" style="background:#059669"></span>BOLL - 布林带</div>'+
+      '<div class="slider-line"><span>周期 N</span><span class="val">'+params.bollN+'</span></div>'+
+      '<input type="range" id="bollN" min="5" max="100" value="'+params.bollN+'">'+
+      '<div class="slider-line" style="margin-top:4px"><span>倍数 K</span><span class="val">'+params.bollK.toFixed(1)+'</span></div>'+
+      '<input type="range" id="bollK" min="10" max="40" value="'+(params.bollK*10)+'" step="1">'+
+      '<div class="range-labels"><span>1.0</span><span>4.0</span></div>'+
+      '<div class="metrics">'+
+        '<div class="metric"><div class="num">'+(bUpV !== null ? bUpV.toFixed(2) : '-')+'</div><div class="label">上轨</div></div>'+
+        '<div class="metric"><div class="num">'+(bMidV !== null ? bMidV.toFixed(2) : '-')+'</div><div class="label">中轨</div></div>'+
+        '<div class="metric"><div class="num">'+(bLowV !== null ? bLowV.toFixed(2) : '-')+'</div><div class="label">下轨</div></div>'+
+        '<div class="metric"><div class="num">'+(widthPct.toFixed(1)+'%')+'</div><div class="label">带宽</div></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card" style="border-left:3px solid #2563eb">'+
+      '<div class="card-title"><span class="dot" style="background:#2563eb"></span>RSI - 相对强弱指标</div>'+
+      '<div class="slider-line"><span>周期 N</span><span class="val">'+params.rsiN+'</span></div>'+
+      '<input type="range" id="rsiN" min="2" max="50" value="'+params.rsiN+'">'+
+      '<div class="range-labels"><span>2</span><span>50</span></div>'+
+      '<div class="metrics">'+
+        '<div class="metric"><div class="num">'+(rsiVal !== null ? rsiVal.toFixed(1) : '-')+'</div><div class="label">最新值</div></div>'+
+        '<div class="metric"><span class="badge '+rsiClass+'">'+rsiStatus+'</span></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card" style="border-left:3px solid #dc2626">'+
+      '<div class="card-title"><span class="dot" style="background:#dc2626"></span>MACD - 异同移动平均线</div>'+
+      '<div class="slider-line"><span>快线 Fast</span><span class="val">'+params.macdFast+'</span></div>'+
+      '<input type="range" id="macdFast" min="2" max="50" value="'+params.macdFast+'">'+
+      '<div class="slider-line" style="margin-top:4px"><span>慢线 Slow</span><span class="val">'+params.macdSlow+'</span></div>'+
+      '<input type="range" id="macdSlow" min="3" max="100" value="'+params.macdSlow+'">'+
+      '<div class="slider-line" style="margin-top:4px"><span>信号线 Signal</span><span class="val">'+params.macdSig+'</span></div>'+
+      '<input type="range" id="macdSig" min="2" max="30" value="'+params.macdSig+'">'+
+      '<div class="metrics">'+
+        '<div class="metric"><div class="num">'+(difVal !== null ? difVal.toFixed(3) : '-')+'</div><div class="label">DIF</div></div>'+
+        '<div class="metric"><div class="num">'+(deaVal !== null ? deaVal.toFixed(3) : '-')+'</div><div class="label">DEA</div></div>'+
+        '<div class="metric"><div class="num '+(histVal>=0?'positive':'negative')+'">'+(histVal !== null ? (histVal>=0?'+':'')+histVal.toFixed(3) : '-')+'</div><div class="label">Hist</div></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card" style="border-left:3px solid #d97706">'+
+      '<div class="card-title"><span class="dot" style="background:#d97706"></span>ATR - 平均真实波幅</div>'+
+      '<div class="slider-line"><span>周期 N</span><span class="val">'+params.atrN+'</span></div>'+
+      '<input type="range" id="atrN" min="2" max="50" value="'+params.atrN+'">'+
+      '<div class="range-labels"><span>2</span><span>50</span></div>'+
+      '<div class="metrics">'+
+        '<div class="metric"><div class="num">'+(atrVal !== null ? atrVal.toFixed(3) : '-')+'</div><div class="label">ATR</div></div>'+
+        '<div class="metric"><div class="num">'+(atrPctV !== null ? atrPctV.toFixed(2)+'%' : '-')+'</div><div class="label">ATR%</div></div>'+
+      '</div>'+
+    '</div>';
+
+  // 快速信息
+  var lastClose = closes[closes.length-1];
+  var prevClose = closes.length > 1 ? closes[closes.length-2] : lastClose;
+  var change = (lastClose/prevClose - 1)*100;
+  var changeClass = change >= 0 ? 'positive' : 'negative';
+  document.getElementById('latestPrice').innerHTML = '<span style="color:var(--tx)">'+lastClose.toFixed(2)+'</span>';
+  document.getElementById('priceChange').innerHTML = '<span class="'+changeClass+'">'+(change>=0?'+':'')+change.toFixed(2)+'%</span>';
+  document.getElementById('dataRange').innerHTML = currentStock.data[0].d+' ~ '+currentStock.data[currentStock.data.length-1].d;
+
+  document.getElementById('stockSelect').value = currentStock.key;
+  document.getElementById('headerMeta').textContent = currentStock.name + ' · ' + currentStock.key;
+
+  // 绑定事件
+  bindEvents();
+}
+
+// ============================================================
+// 事件绑定 + Debounce
+// ============================================================
+var debounceTimer = null;
+function bindEvents() {
+  document.getElementById('stockSelect').onchange = function() {
+    var key = this.value;
+    for (var i = 0; i < STOCK_DATA.length; i++) {
+      if (STOCK_DATA[i].key === key) { currentStock = STOCK_DATA[i]; break; }
+    }
+    saveState(); renderAll();
+  };
+
+  var sliders = ['rsiN','macdFast','macdSlow','macdSig','bollN','bollK','atrN'];
+  sliders.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.oninput = function() {
+      var val = parseFloat(this.value);
+      if (id === 'bollK') val = val / 10;
+      params[id] = val;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() { saveState(); renderAll(); }, 200);
+    };
+  });
+}
+
+// 时间范围按钮
+function buildRangeBtns() {
+  var labels = ['全部','1月','3月','6月','1年'];
+  var html = '';
+  for (var i = 0; i < labels.length; i++) {
+    html += '<span class="range-btn'+(timeRange===i?' active':'')+'" data-range="'+i+'">'+labels[i]+'</span>';
+  }
+  document.getElementById('rangeBtns').innerHTML = html;
+  var btns = document.querySelectorAll('.range-btn');
+  btns.forEach(function(b) {
+    b.onclick = function() {
+      timeRange = parseInt(this.dataset.range);
+      buildRangeBtns();
+      saveState();
+      renderAll();
+    };
+  });
+}
+
+// ============================================================
+// URL Hash 持久化
+// ============================================================
+function saveState() {
+  var h = currentStock.key + '|' + timeRange + '|' + params.rsiN + '|' +
+    params.macdFast + '|' + params.macdSlow + '|' + params.macdSig + '|' +
+    params.bollN + '|' + params.bollK.toFixed(1) + '|' + params.atrN;
+  window.location.hash = h;
+}
+
+function loadState() {
+  var h = window.location.hash.substring(1);
+  if (!h) return;
+  var parts = h.split('|');
+  if (parts.length < 9) return;
+  var key = parts[0];
+  for (var i = 0; i < STOCK_DATA.length; i++) {
+    if (STOCK_DATA[i].key === key) { currentStock = STOCK_DATA[i]; break; }
+  }
+  timeRange = parseInt(parts[1]) || 0;
+  params.rsiN = parseInt(parts[2]) || 14;
+  params.macdFast = parseInt(parts[3]) || 12;
+  params.macdSlow = parseInt(parts[4]) || 26;
+  params.macdSig = parseInt(parts[5]) || 9;
+  params.bollN = parseInt(parts[6]) || 20;
+  params.bollK = parseFloat(parts[7]) || 2.0;
+  params.atrN = parseInt(parts[8]) || 14;
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+window.onload = function() {
+  loadState();
+  buildRangeBtns();
+  renderAll();
+  window.onhashchange = function() { loadState(); renderAll(); };
+};
+</script>
+<footer class="site-footer">
+  <p>🧪 AI Quant Lab · <a href="/ai-quant-lab/">首页</a> · <a href="https://github.com/waanng/ai-quant-lab" target="_blank">GitHub</a></p>
+</footer>
+</body>
+</html>

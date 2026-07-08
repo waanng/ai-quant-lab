@@ -1,37 +1,54 @@
-# AI Quant Lab — Indicator Lab Interactive
+# 🧪 AI Quant Lab — 量化策略实验平台
 
-交互式技术指标分析工具。选择 A+H 股股票，拖拽参数实时重绘 RSI、MACD、布林带、ATR 四个技术指标。
+多策略量化作品集。浏览器内实时计算，零安装、零后端。
 
-## 快速开始
+🔗 **访问**: https://waanng.github.io/ai-quant-lab/
 
-直接用浏览器打开 `index.html`（支持 file:// 协议离线使用，无需服务器）。
+## 策略工具
 
-## 功能
+| 策略 | 路径 | 说明 |
+|------|------|------|
+| 📊 指标实验室 | [/indicator-lab/](indicator-lab/) | RSI / MACD / 布林带 / ATR 交互分析 |
+| 🐢 海龟法则 | [/turtle-strategy/](turtle-strategy/) | 唐奇安通道 + ATR 止损 + 风险预算回测 |
+| 📈 均线交叉 | [/ma-cross/](ma-cross/) | 双均线金叉死叉策略回测 |
+| 🤖 机器学习 | 即将推出 | 随机森林 + XGBoost 趋势预测 |
+| 🎯 组合优化 | 即将推出 | 风险平价 / 动态权重 |
 
-- **5 只股票**：中芯国际 A · 比亚迪 A · 长江电力 A · 中芯国际 HK · 比亚迪 HK
-- **4 个指标**：布林带 / RSI / MACD / ATR，每个参数独立可调
-- **实时重绘**：拖拽滑块 200ms 防抖，Chart.js 渲染
-- **状态持久化**：URL hash 记录当前参数，可复制分享
+## 共享数据
+
+5 只 A+H 股票（中芯国际 A/H、比亚迪 A/H、长江电力 A），近 3 年日线。
+
+数据每日由 GitHub Actions 自动更新（`scripts/generate_data_js.py`）。
+
+## 技术栈
+
+- 纯前端 HTML + CSS + 原生 JS
+- Chart.js 4.x
+- 零依赖运行，支持 `file://` 协议离线使用
+- 部署：GitHub Pages
 
 ## 文件结构
 
 ```
 ai-quant-lab/
-├── index.html          # 主页面
-├── data.js             # 5 只股票的 OHLCV 内联数据
-├── vendor/
-│   └── chart.umd.min.js  # Chart.js 4.4.1 本地副本
-└── docs/
-    └── spec_indicator_interactive.md  # 设计文档
+├── index.html                # 🏠 首页门户
+├── indicator-lab/             # 📊 指标实验室
+│   ├── index.html
+│   └── data.js                # 共享股票数据
+├── turtle-strategy/           # 🐢 海龟法则
+│   ├── index.html
+│   └── js/turtle_engine.js    # JS 引擎
+├── ma-cross/                  # 📈 均线交叉
+│   └── index.html
+├── shared/
+│   ├── common.css             # 公共样式
+│   └── lib/chart.umd.min.js   # Chart.js
+├── scripts/
+│   └── generate_data_js.py    # 数据更新脚本
+├── .github/workflows/         # Actions 每日部署
+└── docs/                      # 设计文档
 ```
-
-## 技术栈
-
-- 纯前端 HTML + CSS Grid + 原生 JS
-- Chart.js 4.4.1 本地部署
-- 指标计算引擎（JS 实现 RSI/MACD/BOLL/ATR）
-- 零依赖运行，无需 npm install
 
 ## 免责声明
 
-技术指标描述历史市场状态，不等于买卖信号。本工具仅供教学研究使用。
+所有策略仅供教学研究使用，不构成投资建议。
