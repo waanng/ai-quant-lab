@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>均线交叉策略 — AI Quant Lab</title>
+<link rel="stylesheet" href="../shared/common.css">
+<style>
+:root{--bg:#fff;--bg2:#f5f5f5;--bd:#e5e7eb;--tx:#1a1a2e;--tx2:#6b7280;--tx3:#9ca3af;--red:#dc2626;--green:#059669;--blue:#2563eb;--font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);font-size:13px;color:var(--tx);background:var(--bg2);line-height:1.5}
+.container{max-width:1100px;margin:0 auto;padding:20px}
+.controls{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.control-group{display:flex;flex-direction:column;gap:4px}
+.control-group label{font-size:11px;color:var(--tx2);text-transform:uppercase}
+select,input[type=number]{background:var(--bg);color:var(--tx);border:1px solid var(--bd);padding:7px 10px;border-radius:6px;font-size:13px;min-width:100px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.m-card{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px;text-align:center}
+.m-card .m-label{font-size:10px;color:var(--tx2);text-transform:uppercase}
+.m-card .m-value{font-size:18px;font-weight:700;margin-top:2px}
+.up{color:var(--red)}.down{color:var(--green)}
+.chart-panel{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.chart-wrap{position:relative;height:300px}
+@media(max-width:600px){.controls{flex-direction:column}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style>
+<script src="../shared/lib/chart.umd.min.js"></script>
+</head>
+<body>
+<nav class="site-nav">
+  <a href="/ai-quant-lab/" class="nav-brand">🧪 AI Quant Lab</a>
+  <div class="nav-links">
+    <a href="/ai-quant-lab/indicator-lab/">📊 指标实验室</a>
+    <a href="/ai-quant-lab/turtle-strategy/">🐢 海龟法则</a>
+    <a href="/ai-quant-lab/ma-cross/" class="active">📈 均线交叉</a>
+  </div>
+</nav>
+
+<div class="container">
+<div class="controls">
+  <div class="control-group"><label>标的</label><select id="stock-selector"></select></div>
+  <div class="control-group"><label>短周期</label><input type="number" id="short-ma" value="5" min="2" max="60" style="width:70px"></div>
+  <div class="control-group"><label>长周期</label><input type="number" id="long-ma" value="20" min="5" max="120" style="width:70px"></div>
+  <div class="control-group"><label style="visibility:hidden">.</label><button onclick="run()" style="background:var(--blue);color:#fff;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px">▶ 运行</button></div>
+</div>
+
+<div class="metrics" id="metrics-cards"></div>
+<div class="chart-panel"><div class="chart-wrap"><canvas id="ma-chart"></canvas></div></div>
+<div class="chart-panel"><div class="chart-wrap" style="height:220px"><canvas id="equity-chart"></canvas></div></div>
+</div>
+
+<script src="../indicator-lab/data.js"></script>
+<script>
+const NAMES={};
+let stockMap={},maChart=null,eqChart=null;
+STOCK_DATA.forEach(s=>{const c=s.key.replace('_SH','.SH').replace('_SZ','.SZ').replace('_HK','.HK');stockMap[c]=s;NAMES[c]=s.name;});
+
+function convertData(raw){return raw.data.map(r=>({date:r.d,o:r.o,h:r.h,l:r.l,c:r.c,v:r.v}));}
+function fmtPct(v){return(v*100).toFixed(2)+'%';}
+function up(v){return v>=0?'up':'down';}
+function sma(arr,p){const r=[];for(let i=0;i<arr.length;i++)r.push(i<p-1?null:arr.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p);return r;}
+
+function run(){
+  const tsCode=document.getElementById('stock-selector').value;
+  const raw=stockMap[tsCode];if(!raw)return;
+  const data=convertData(raw);
+  const sp=+document.getElementById('short-ma').value;
+  const lp=+document.getElementById('long-ma').value;
+  const close=data.map(d=>d.c);
+  const sm=sma(close,sp),lm=sma(close,lp);
+  const n=data.length;
+
+  // Backtest
+  let cash=100000,pos=0,trades=[],equity=[];
+  for(let i=lp;i<n;i++){
+    if(sm[i]==null||lm[i]==null)continue;
+    const sig=(sm[i-1]<=lm[i-1]&&sm[i]>lm[i])?1:(sm[i-1]>=lm[i-1]&&sm[i]<lm[i])?-1:0;
+    const execP=data[i].o;
+    if(pos===0&&sig===1){const sh=Math.floor(cash/execP/100)*100;if(sh>0){cash-=sh*execP*1.0003;pos=sh;trades.push({entry:data[i].date,ep:execP,shares:sh});}}
+    else if(pos>0&&sig===-1){cash+=pos*execP*.9997;const t=trades[trades.length-1];
+      trades[trades.length-1]={...t,exit:data[i].date,xp:execP,ret:(execP-t.ep)/t.ep,hold:i-lp};
+      pos=0;}
+    equity.push({date:data[i].date,eq:cash+pos*close[i]});
+  }
+
+  // Equity chart data
+  const eqLabels=equity.map(e=>e.date.slice(5));
+  const eqVals=equity.map(e=>e.eq);
+  const firstC=equity[0]?data.find(d=>d.date===equity[0].date)?.c||1:1;
+  const bench=equity.map((e,i)=>{
+    const c=data.find(d=>d.date===e.date)?.c||1;return 100000*(1+(c-firstC)/firstC);
+  });
+
+  // Metrics
+  const final=eqVals[eqVals.length-1];
+  const cumRet=(final-100000)/100000;
+  const years=eqVals.length/252;
+  const annRet=years>0?Math.pow(1+cumRet,1/years)-1:0;
+  const dr=[];for(let i=1;i<eqVals.length;i++)dr.push((eqVals[i]-eqVals[i-1])/eqVals[i-1]);
+  const meanR=dr.reduce((a,b)=>a+b,0)/dr.length;
+  const stdR=Math.sqrt(dr.reduce((a,b)=>a+(b-meanR)**2,0)/dr.length);
+  const sharpe=stdR>0?meanR/stdR*Math.sqrt(252):0;
+  let peak=-Infinity,maxDD=0;
+  for(const v of eqVals){if(v>peak)peak=v;const dd=(v-peak)/peak;if(dd<maxDD)maxDD=dd;}
+  const completedTrades=trades.filter(t=>t.exit);
+  const wr=completedTrades.length>0?completedTrades.filter(t=>t.ret>0).length/completedTrades.length:0;
+
+  document.getElementById('metrics-cards').innerHTML=[
+    ['年化收益',fmtPct(annRet),up(annRet)],['夏普比率',sharpe.toFixed(2),''],
+    ['最大回撤',fmtPct(maxDD),'down'],['胜率',fmtPct(wr),''],
+  ].map(([l,v,c])=>`<div class="m-card"><div class="m-label">${l}</div><div class="m-value ${c}">${v}</div></div>`).join('');
+
+  // MA chart
+  if(maChart)maChart.destroy();
+  const ctx1=document.getElementById('ma-chart').getContext('2d');
+  const maLabels=data.map(d=>d.date.slice(5));
+  // 用日期到索引的映射来定位散点
+  const dateIdx={};data.forEach((d,i)=>{dateIdx[d.date]=i;});
+  const entries=[],exits=[];
+  completedTrades.forEach(t=>{
+    const ei=dateIdx[t.entry],xi=dateIdx[t.exit];
+    if(ei!=null)entries.push({x:ei,y:t.ep});
+    if(xi!=null)exits.push({x:xi,y:t.xp});
+  });
+  maChart=new Chart(ctx1,{type:'line',data:{labels:maLabels,datasets:[
+    {label:'收盘价',data:close,borderColor:'#374151',borderWidth:1.5,pointRadius:0},
+    {label:`MA${sp}`,data:sm,borderColor:'#dc2626',borderWidth:1,pointRadius:0},
+    {label:`MA${lp}`,data:lm,borderColor:'#2563eb',borderWidth:1,pointRadius:0},
+    {label:'▲买入',type:'scatter',data:entries,backgroundColor:'#dc2626',pointRadius:6,pointStyle:'triangle'},
+    {label:'▼卖出',type:'scatter',data:exits,backgroundColor:'#059669',pointRadius:6,pointStyle:'triangle',rotation:180},
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{position:'top',labels:{color:'#6b7280',usePointStyle:true,padding:10,font:{size:10},boxWidth:14}}},
+    scales:{x:{ticks:{color:'#9ca3af',maxTicksLimit:12},grid:{color:'rgba(0,0,0,.06)'}},
+            y:{ticks:{color:'#9ca3af'},grid:{color:'rgba(0,0,0,.06)'}}}
+  }});
+
+  // Equity chart
+  if(eqChart)eqChart.destroy();
+  const ctx2=document.getElementById('equity-chart').getContext('2d');
+  eqChart=new Chart(ctx2,{type:'line',data:{labels:eqLabels,datasets:[
+    {label:'策略净值',data:eqVals,borderColor:'#dc2626',borderWidth:2,pointRadius:0},
+    {label:'买入持有',data:bench,borderColor:'#9ca3af',borderWidth:1,borderDash:[4,4],pointRadius:0},
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:'#6b7280',usePointStyle:true,padding:14}}},
+    scales:{x:{ticks:{color:'#9ca3af',maxTicksLimit:10},grid:{color:'rgba(0,0,0,.06)'}},
+            y:{ticks:{color:'#9ca3af',callback:v=>'¥'+(v/10000).toFixed(1)+'万'},grid:{color:'rgba(0,0,0,.06)'}}}
+  }});
+}
+
+function init(){
+  const sel=document.getElementById('stock-selector');
+  Object.entries(stockMap).forEach(([c,s])=>{sel.innerHTML+=`<option value="${c}">${s.name}</option>`;});
+  sel.onchange=run;
+  document.getElementById('short-ma').onchange=run;
+  document.getElementById('long-ma').onchange=run;
+  run();
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+<footer class="site-footer"><p>🧪 AI Quant Lab · <a href="/ai-quant-lab/">首页</a> · <a href="https://github.com/waanng/ai-quant-lab" target="_blank">GitHub</a></p></footer>
+</body>
+</html>
